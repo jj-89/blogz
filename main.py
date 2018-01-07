@@ -21,18 +21,17 @@ class Posts(db.Model):
 
 @app.route('/blog', methods=['POST','GET'])
 def index():
-
-    posts = Posts.query.all()
+    posts = []
     post_id = request.args.get('id')
 
     if post_id:
-        post_id = int(request.args.get('id')) % len(posts) -1
-        return render_template('post.html', posts=posts,
+        posts = Posts.query.filter_by(id=post_id).all()
+        return render_template('blog-posts.html', posts=posts,
         post_id = post_id)
-
-    return render_template('blog-posts.html',posts = posts)
+    else:
+        posts = Posts.query.all()
+        return render_template('blog-posts.html',posts = posts)
     
-
 @app.route('/newpost', methods=['POST','GET'])
 def add_post():
 
