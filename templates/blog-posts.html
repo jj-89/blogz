@@ -1,9 +1,6 @@
 {% extends 'base.html' %}
 
 {% block content %}
-
-
-
     {% for post in posts %}
         <form>
             <input type="hidden" name="post-id" value="{{post.id}}"/>
@@ -11,8 +8,9 @@
         <a href="/blog?id={{post.id}}" ><h1><strong>{{post.title}}</strong></h1></a>
 
         {{post.post}}
-
-    <!-- <hr> -->
+        {% if posts|length > 1 %}
+            <hr>   
+        {% endif %}
     {% endfor %}
 
 {% endblock %}
