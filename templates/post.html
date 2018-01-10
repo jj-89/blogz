@@ -3,12 +3,11 @@
 {% block content %}
 
 
-    <h1><strong>{{posts[post_id].title}}</strong></h1>
+    <h1><strong>{{post.title}}</strong></h1>
 
-    {{posts[post_id].post}}
+    {{post.post}}
 
-
-
+    <p>Written by <a href="/blog?user={{post.owner.id}}">{{post.owner.email}}</a></p>
 
 
 

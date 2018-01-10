@@ -18,6 +18,7 @@ class User(db.Model):
         self.email = email
         self.password = password
 
+
 class Posts(db.Model):
 
     id = db.Column(db.Integer, primary_key = True)
@@ -70,7 +71,7 @@ def login():
         if user and user.password == password:
             session['email'] = email
             flash("Logged in")
-            return redirect('/blog')
+            return redirect('/')
         else:
             flash("Email and password do not match, or the user does not exist", 'error') 
 
@@ -81,22 +82,38 @@ def logout():
     del session['email']
     return redirect('/login')
 
-@app.route('/blog', methods=['POST','GET'])
+@app.route('/', methods=['POST','GET'])
 def index():
+    logged = True
+    users = User.query.all()
+    user_id = request.args.get("owner_id")
+    posts = Posts.query.filter_by(owner_id=user_id).all()
+    return render_template('index.html', title="Blogz!", users=users,user_id=user_id,posts=posts,logged=logged)
+
+@app.route('/blog', methods=['POST','GET'])
+def blog():
     logged = True
 
     owner = User.query.filter_by(email=session['email']).first()
+    
 
-    posts = []
-    post_id = request.args.get('id')
-
-    if post_id:
-        posts = Posts.query.filter_by(id=post_id).all()
-        return render_template('blog-posts.html',title = 'Blogz!', posts=posts,
-        post_id = post_id,logged=logged)
+    if request.method == 'GET' and 'id' in request.args:
+        post_id = request.args.get('id')
+        post = Posts.query.get(post_id)
+        author = Posts.query.get(post.owner_id)
+        owner = User.query.get(author.owner_id)
+        email = User.query.get(owner.email)
+        return render_template('post.html', post = post, owner = owner, email = email, logged = logged)
+    elif request.method == 'GET' and 'user' in request.args:
+        user_id = request.args.get('user')
+        posts = Posts.query.filter_by(owner_id=user_id).all()
+        author = User.query.filter_by(id=user_id).first()
+        return render_template('user-posts.html', posts=posts, author=author, logged = logged,user_id = user_id)
     else:
-        posts = Posts.query.filter_by(owner=owner).all()
-        return render_template('blog-posts.html',title = 'Blogz!',posts = posts,logged=logged,owner=owner)
+        posts = Posts.query.all()
+        return render_template('blog-posts.html', logged = logged, posts = posts)
+            
+
     
 @app.route('/newpost', methods=['POST','GET'])
 def add_post():

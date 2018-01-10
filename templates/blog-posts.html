@@ -8,6 +8,9 @@
         <a href="/blog?id={{post.id}}" ><h1><strong>{{post.title}}</strong></h1></a>
 
         {{post.post}}
+        <br>
+        <br>
+        <p>Written by <a href="/blog?user={{post.owner.id}}">{{post.owner.email}}</a></p>
         {% if posts|length > 1 %}
             <hr>   
         {% endif %}
