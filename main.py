@@ -1,5 +1,6 @@
 from flask import Flask, request, redirect, render_template, session, flash
 from flask_sqlalchemy import SQLAlchemy
+from hashutils import make_pw_hash, check_pw_hash
 
 app = Flask(__name__)
 app.config['DEBUG'] = True
@@ -11,12 +12,12 @@ app.secret_key = '7v5XIQL9aFad7d'
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True)
-    password = db.Column(db.String(120))
+    pw_hash = db.Column(db.String(120))
     posts = db.relationship('Posts', backref='owner')
 
     def __init__(self, email, password):
         self.email = email
-        self.password = password
+        self.pw_hash = make_pw_hash(password)
 
 
 class Posts(db.Model):
@@ -45,9 +46,45 @@ def register():
         password = request.form['password']
         verify = request.form['verify']
 
-        # TODO - Validate registration
+        # tests for acutal email adress
+        if '@' not in email or '.' not in email:
+            flash("Please input a valid email.", 'error')
+            return render_template('/register.html')
+        # tests lengh of email
+        if len(email) < 3 and len(email) > 0:
+            flash("Your email must be at least three characters", 'error')
+            return render_template('/register.html', 'error')
+        elif len(email) > 20:
+            flash("Your email must be less than twenty characters", 'error')
+            return render_template('register.html')
+        # check password for spaces
+        for char in email:
+            if char == " ":
+                flash("email can not contain spaces", 'error')
+                return render_template('register.html')
+
+        # checks for matching passwords
+        if len(password) == 0:
+            flash("Please enter a password", 'error')
+            return render_template('register.html')
+        elif len(password) < 3 and len(password) > 0:
+            flash("Password must be at least three characters", 'error')
+            return render_template('register.html')
+        elif len(password) > 20:
+            flash("Password must be less than twenty characters", 'error')
+            return render_template('register.html')
+        # check password for spaces
+        for char in password:
+            if char == " ":
+                flash("Password can not contain spaces",'error')
+                return render_template('register.html')
+        # verify password is correct
+        if password != verify:
+            flash("Your password was not typed correctly",'error')
+            return render_template('register.html')
 
         existing_user = User.query.filter_by(email=email).first()
+
         if not existing_user:
             new_user = User(email, password)
             db.session.add(new_user)
@@ -68,12 +105,16 @@ def login():
         password = request.form['password']
         user = User.query.filter_by(email=email).first()
 
-        if user and user.password == password:
+        if not user:
+            flash('User does not exist', 'error')
+            return render_template('/login.html')
+
+        if user and check_pw_hash(password, user.pw_hash):
             session['email'] = email
             flash("Logged in")
-            return redirect('/')
+            return redirect('/newpost')
         else:
-            flash("Email and password do not match, or the user does not exist", 'error') 
+            flash("Email and password do not match", 'error') 
 
     return render_template('login.html')
 
