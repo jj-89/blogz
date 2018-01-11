@@ -1,37 +1,7 @@
 from flask import Flask, request, redirect, render_template, session, flash
-from flask_sqlalchemy import SQLAlchemy
 from hashutils import make_pw_hash, check_pw_hash
-
-app = Flask(__name__)
-app.config['DEBUG'] = True
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://blogz:blogz@localhost:8889/blogz'
-app.config['SQLALCHEMY_ECHO'] = True
-db = SQLAlchemy(app)
-app.secret_key = '7v5XIQL9aFad7d'
-
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True)
-    pw_hash = db.Column(db.String(120))
-    posts = db.relationship('Posts', backref='owner')
-
-    def __init__(self, email, password):
-        self.email = email
-        self.pw_hash = make_pw_hash(password)
-
-
-class Posts(db.Model):
-
-    id = db.Column(db.Integer, primary_key = True)
-    title = db.Column(db.String(120))
-    post = db.Column(db.String(120))
-    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-
-
-    def __init__(self, title, post, owner):
-        self.title = title
-        self.post = post
-        self.owner = owner
+from app import app,db
+from model import Posts, User
 
 @app.before_request
 def require_login():
@@ -46,24 +16,22 @@ def register():
         password = request.form['password']
         verify = request.form['verify']
 
-        # tests for acutal email adress
         if '@' not in email or '.' not in email:
             flash("Please input a valid email.", 'error')
             return render_template('/register.html')
-        # tests lengh of email
+
         if len(email) < 3 and len(email) > 0:
             flash("Your email must be at least three characters", 'error')
             return render_template('/register.html', 'error')
         elif len(email) > 20:
             flash("Your email must be less than twenty characters", 'error')
             return render_template('register.html')
-        # check password for spaces
+
         for char in email:
             if char == " ":
                 flash("email can not contain spaces", 'error')
                 return render_template('register.html')
 
-        # checks for matching passwords
         if len(password) == 0:
             flash("Please enter a password", 'error')
             return render_template('register.html')
@@ -73,12 +41,12 @@ def register():
         elif len(password) > 20:
             flash("Password must be less than twenty characters", 'error')
             return render_template('register.html')
-        # check password for spaces
+
         for char in password:
             if char == " ":
                 flash("Password can not contain spaces",'error')
                 return render_template('register.html')
-        # verify password is correct
+
         if password != verify:
             flash("Your password was not typed correctly",'error')
             return render_template('register.html')
@@ -93,7 +61,6 @@ def register():
             return redirect('/blog')
         else:
             flash("User already exists",'error')
-
 
     return render_template('register.html')
 
@@ -123,46 +90,36 @@ def logout():
     del session['email']
     return redirect('/login')
 
-@app.route('/', methods=['POST','GET'])
+@app.route('/', methods=['GET'])
 def index():
     logged = True
     users = User.query.all()
-    user_id = request.args.get("owner_id")
-    posts = Posts.query.filter_by(owner_id=user_id).all()
-    return render_template('index.html', title="Blogz!", users=users,user_id=user_id,posts=posts,logged=logged)
+    return render_template('index.html', title="Blogz!", users=users,logged=logged)
 
-@app.route('/blog', methods=['POST','GET'])
+@app.route('/blog', methods=['GET'])
 def blog():
     logged = True
 
     owner = User.query.filter_by(email=session['email']).first()
-    
 
-    if request.method == 'GET' and 'id' in request.args:
+    if 'id' in request.args:
         post_id = request.args.get('id')
         post = Posts.query.get(post_id)
-        author = Posts.query.get(post.owner_id)
-        owner = User.query.get(author.owner_id)
         email = User.query.get(owner.email)
-        return render_template('post.html', post = post, owner = owner, email = email, logged = logged)
-    elif request.method == 'GET' and 'user' in request.args:
+        return render_template('post.html', post = post, email = email, logged = logged)
+    elif 'user' in request.args:
         user_id = request.args.get('user')
         posts = Posts.query.filter_by(owner_id=user_id).all()
-        author = User.query.filter_by(id=user_id).first()
-        return render_template('user-posts.html', posts=posts, author=author, logged = logged,user_id = user_id)
+        return render_template('user-posts.html', posts=posts,logged = logged)
     else:
         posts = Posts.query.all()
         return render_template('blog-posts.html', logged = logged, posts = posts)
             
-
-    
 @app.route('/newpost', methods=['POST','GET'])
 def add_post():
     logged = True
-
-    title_error = ""
-    blog_post_error = ""
-
+    title_error = False
+    blog_post_error = False
 
     if request.method == 'POST':
         blog_title = request.form['blog-title']
@@ -171,21 +128,21 @@ def add_post():
         new_post = Posts(blog_title, blog_post,owner)
 
         if len(blog_title) == 0:
-            title_error = "Please enter a title"
+            title_error = True
+            flash("Please enter a title", "error")
+            return render_template('add-post.html')
 
         if len(blog_post) == 0:
-            blog_post_error = "Please write a blog post"
+            blog_post_error = True
+            flash("Please write a blog post", "error")
+            return render_template('add-post.html')
 
         if not title_error and not blog_post_error:
             db.session.add(new_post)
             db.session.commit()
             return redirect('/blog?id={0}'.format(new_post.id))
 
-    return render_template('add-post.html', title_error = title_error,
-            blog_post_error = blog_post_error, logged=logged)
-
-
-
+    return render_template('add-post.html', logged=logged)
 
 if __name__ == '__main__':
     app.run()
